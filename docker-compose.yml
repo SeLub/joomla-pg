@@ -1,0 +1,67 @@
+services:
+  postgres:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: joomla-pg
+    ports:         
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: appsecret
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 10s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: joomla-redis
+    volumes:
+      - redisdata:/data
+    restart: always
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: joomla-api
+    environment:
+      DATABASE_URL: postgresql://appuser:appsecret@postgres:5432/appdb
+      REDIS_HOST: redis
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: always
+
+  joomla:
+    image: joomla:latest
+    container_name: joomla-app
+    ports:
+      - "8080:80"
+    environment:
+      JOOMLA_DB_TYPE: pgsql
+      JOOMLA_DB_HOST: postgres
+      JOOMLA_DB_USER: joomlauser
+      JOOMLA_DB_PASSWORD: joomlasecret
+      JOOMLA_DB_NAME: appdb
+      JOOMLA_DB_PREFIX: jos_
+    volumes:
+      - joomla_data:/var/www/html
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: always
+
+volumes:
+  pgdata:
+  redisdata:
+  joomla_data:
