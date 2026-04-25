@@ -1,0 +1,59 @@
+# .github/workflows/deploy.yml
+name: Build & Deploy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run API tests
+        working-directory: ./api
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm test
+
+  deploy:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    needs: test
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Hetzner via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/joomla-pg
+            
+            # 1. Обновляем код (но не .env — он в .gitignore)
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # 2. Собираем образ API нативно для ARM64 (важно!)
+            docker compose -f docker-compose.prod.yml build --no-cache api
+            
+            # 3. Запускаем/перезапускаем сервисы
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            # 4. Ждём запуска и проверяем здоровье
+            echo "Waiting for services to start..."
+            sleep 15
+            curl -f http://127.0.0.1:3000/api/health || exit 1
+            
+            # 5. Очистка старых образов (экономим место)
+            docker image prune -f --filter="until=24h"
+            
+            echo "✅ Deploy completed successfully"
