@@ -1,11 +1,15 @@
 import { Module } from '@nestjs/common';
 import { CacheModule } from '@nestjs/cache-manager';
 import KeyvRedis from '@keyv/redis';
-import { LocationsModule } from './locations/locations.module';
+import { LocationsModule } from './/locations/locations.module';
 import { HealthModule } from './health/health.module';
+import { AppUsersModule } from './domains/users/users.module';
+import { DatabaseModule } from './shared/database/database.module';
+
 
 @Module({
   imports: [
+    DatabaseModule,
     CacheModule.registerAsync({
       isGlobal: true,
       useFactory: () => ({
@@ -17,6 +21,7 @@ import { HealthModule } from './health/health.module';
     }),
     LocationsModule,
     HealthModule,
+    AppUsersModule,
   ],
 })
 export class AppModule {}
