@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="system" method="upgrade">
+    <name>plg_system_joomlageo</name>
+    <version>1.0.0</version>
+    <author>Your Name</author>
+    <description>Provisions Joomla users to NestJS API on registration</description>
+    
+    <files>
+        <filename plugin="joomlageo">joomlageo.php</filename>
+    </files>
+
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field name="api_url" type="url" 
+                       default="http://joomla-api:3000/api/v1/users/provision" 
+                       label="API Endpoint" 
+                       description="NestJS provisioning URL (Docker internal)" />
+                <field name="timeout" type="number" default="3" 
+                       label="Timeout (sec)" 
+                       description="Max wait time. Low value prevents blocking UX" />
+                <field name="log_level" type="list" default="warning" 
+                       label="Log Level">
+                    <option value="debug">Debug</option>
+                    <option value="info">Info</option>
+                    <option value="warning">Warning</option>
+                    <option value="error">Error</option>
+                </field>
+            </fieldset>
+        </fields>
+    </config>
+</extension>
