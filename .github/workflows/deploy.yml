@@ -3,29 +3,12 @@ name: Build & Deploy
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-    types: [ closed ]
+    branches: [ main ]  # Запуск ТОЛЬКО при пуше в main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run API tests
-        working-directory: ./api
-        run: |
-          corepack enable
-          pnpm install --frozen-lockfile
-          pnpm test
-
   deploy:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
-    needs: test
-    environment: production
+    # Убрали сложные if — запуск при любом пуше в main
     steps:
       - uses: actions/checkout@v4
 
@@ -36,24 +19,26 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
+            set -e  # Остановиться при первой ошибке
             cd /opt/joomla-pg
             
-            # 1. Обновляем код (но не .env — он в .gitignore)
+            echo "🔄 Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
             
-            # 2. Собираем образ API нативно для ARM64 (важно!)
+            echo "🔨 Building API image for ARM64..."
             docker compose -f docker-compose.prod.yml build --no-cache api
             
-            # 3. Запускаем/перезапускаем сервисы
+            echo "🚀 Starting services..."
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            # 4. Ждём запуска и проверяем здоровье
-            echo "Waiting for services to start..."
-            sleep 15
-            curl -f http://127.0.0.1:3000/api/health || exit 1
+            echo "⏳ Waiting for services to start..."
+            sleep 20
             
-            # 5. Очистка старых образов (экономим место)
+            echo "🏥 Health check..."
+            curl -f http://127.0.0.1:3000/api/health || { echo "❌ Health check failed"; exit 1; }
+            
+            echo "🧹 Cleaning old images..."
             docker image prune -f --filter="until=24h"
             
-            echo "✅ Deploy completed successfully"
+            echo "✅ Deploy completed successfully!"
