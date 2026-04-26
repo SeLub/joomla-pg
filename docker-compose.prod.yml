@@ -4,9 +4,9 @@ services:
     image: postgis/postgis:15-3.3-alpine
     container_name: joomla-pg
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
@@ -59,10 +59,10 @@ services:
       - "443:443"
     environment:
       JOOMLA_DB_TYPE: pgsql
-      JOOMLA_DB_HOST: joomla-pg
+      JOOMLA_DB_HOST: postgres
       JOOMLA_DB_USER: joomlauser
       JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-joomlasecret}
-      JOOMLA_DB_NAME: ${POSTGRES_DB}
+      JOOMLA_DB_NAME: ${POSTGRES_DB:-appdb}
       JOOMLA_DB_PREFIX: jos_
     volumes:
       - joomla_data:/var/www/html
