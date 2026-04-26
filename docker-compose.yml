@@ -47,7 +47,7 @@ services:
     image: joomla:latest
     container_name: joomla-app
     ports:
-      - "8080:80"
+      - "80:80"
     environment:
       JOOMLA_DB_TYPE: pgsql
       JOOMLA_DB_HOST: postgres

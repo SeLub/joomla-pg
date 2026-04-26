@@ -27,10 +27,10 @@ jobs:
             git reset --hard origin/main
             
             echo "🔨 Building API image for ARM64..."
-            docker compose -f docker-compose.prod.yml build --no-cache api
+            docker compose -f docker-compose.yml build --no-cache api
             
             echo "🚀 Starting services..."
-            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker compose -f docker-compose.yml up -d --remove-orphans
             
             echo "⏳ Waiting for services to start..."
             sleep 20
