@@ -1,14 +1,12 @@
-# .github/workflows/deploy.yml
 name: Build & Deploy
 
 on:
   push:
-    branches: [ main ]  # Запуск ТОЛЬКО при пуше в main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Убрали сложные if — запуск при любом пуше в main
     steps:
       - uses: actions/checkout@v4
 
@@ -19,26 +17,28 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
-            set -e  # Остановиться при первой ошибке
+            set -e
             cd /opt/joomla-pg
             
             echo "🔄 Pulling latest code..."
             git fetch origin main
             git reset --hard origin/main
             
-            echo "🔨 Building API image for ARM64..."
-            docker compose -f docker-compose.yml build --no-cache api
+            echo "🔨 Building API image..."
+            # ✅ Явно указываем prod-файл
+            docker compose -f docker-compose.prod.yml build --no-cache api
             
             echo "🚀 Starting services..."
-            docker compose -f docker-compose.yml up -d --remove-orphans
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            echo "⏳ Waiting for services to start..."
+            echo "⏳ Waiting for services..."
             sleep 20
             
-            echo "🏥 Health check..."
-            curl -f http://127.0.0.1:3000/api/health || { echo "❌ Health check failed"; exit 1; }
+            echo "🏥 Health check API..."
+            # Проверяем публичный эндпоинт
+            curl -f http://127.0.0.1:3000/api/health || { echo "❌ API Health check failed"; exit 1; }
             
-            echo "🧹 Cleaning old images..."
+            echo "🧹 Cleaning..."
             docker image prune -f --filter="until=24h"
             
-            echo "✅ Deploy completed successfully!"
+            echo "✅ Deploy completed!"
