@@ -1,0 +1,65 @@
+# traefik/traefik.yml
+global:
+  checkNewVersion: true
+  sendAnonymousUsage: false
+
+# ===========================
+# 🌐 Entry Points (порты)
+# ===========================
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"
+    http:
+      tls:
+        certResolver: letsencrypt
+
+# ===========================
+# 📋 Providers
+# ===========================
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false  # Только сервисы с traefik.enable=true
+
+# ===========================
+# 🔐 Let's Encrypt
+# ===========================
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: siteup24@gmail.com
+      storage: /acme.json
+      dnsChallenge:  # ← Вместо httpChallenge
+        provider: cloudflare
+        delayBeforeCheck: 30  # Ждём пропагации DNS
+        resolvers:
+          - "1.1.1.1:53"
+          - "8.8.8.8:53"
+
+# ===========================
+# 📊 Logs & Access (опционально)
+# ===========================
+log:
+  level: INFO
+  format: common
+
+accessLog:
+  format: common
+  fields:
+    defaultMode: keep
+    headers:
+      defaultMode: drop
+
+ping:
+  entryPoint: web
+
+api:
+  dashboard: true
+  insecure: false 

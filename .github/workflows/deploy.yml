@@ -24,8 +24,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             
+            echo "🔐 Ensuring traefik/acme.json exists with correct permissions..."
+            # Создаём директорию, если нет
+            mkdir -p traefik
+            # Создаём файл, если нет
+            touch traefik/acme.json
+            # 🔐 Критично: права только для чтения/записи владельцем
+            chmod 600 traefik/acme.json
+            
             echo "🔨 Building API image..."
-            # ✅ Явно указываем prod-файл
             docker compose -f docker-compose.prod.yml build --no-cache api
             
             echo "🚀 Starting services..."
@@ -35,7 +42,6 @@ jobs:
             sleep 20
             
             echo "🏥 Health check API..."
-            # Проверяем публичный эндпоинт
             curl -f http://127.0.0.1:3000/api/health || { echo "❌ API Health check failed"; exit 1; }
             
             echo "🧹 Cleaning..."
