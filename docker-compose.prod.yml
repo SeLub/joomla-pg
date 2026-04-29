@@ -39,6 +39,9 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-3000}
       JWT_SHARED_SECRET: ${JWT_SHARED_SECRET}
+    ports:
+      # ✅ Безопасный проброс только для localhost. Доступно только с самого сервера (не из интернета). Удобно для отладки и health checks.
+      - "127.0.0.1:3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,7 +72,7 @@ services:
   # 🚦 TRAEFIK - API Gateway
   # ===========================
   traefik:
-    image: traefik:v3.0
+    image: traefik:v3.6.14
     container_name: traefik
     ports:
       - "80:80"
@@ -77,7 +80,8 @@ services:
       # Опционально: панель мониторинга (защитите паролем в продакшене!)
       # - "8080:8080"
     environment:
-      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}  # ← Создайте в Cloudflare API
+      - DOCKER_API_VERSION=1.40
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}  # ← Создайте в Cloudflare API
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro  # Авто-обнаружение сервисов
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -118,25 +122,39 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-        traefik:
-          condition: service_started
+      traefik:
+        condition: service_started
     restart: unless-stopped
     networks:
       - app-net
     labels:
       - "traefik.enable=true"
-      # Маршрут: reev24.com и www.reev24.com → joomla-app:80
-      - "traefik.http.routers.joomla.rule=Host(`reev24.com`, `www.reev24.com`)"
-      - "traefik.http.routers.joomla.entrypoints=websecure"
-      - "traefik.http.routers.joomla.tls=true"
-      - "traefik.http.routers.joomla.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.joomla.service=joomla"
+      
+      # 🔹 Роутер 1: reev24.com → HTTPS
+      - "traefik.http.routers.joomla-main.rule=Host(`reev24.com`)"
+      - "traefik.http.routers.joomla-main.entrypoints=websecure"
+      - "traefik.http.routers.joomla-main.tls=true"
+      - "traefik.http.routers.joomla-main.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.joomla-main.service=joomla"
       - "traefik.http.services.joomla.loadbalancer.server.port=80"
-      # Редирект HTTP → HTTPS
-      - "traefik.http.routers.joomla-http.rule=Host(`reev24.com`) || Host(`www.reev24.com`)"
-      - "traefik.http.routers.joomla-http.entrypoints=web"
-      - "traefik.http.routers.joomla-http.middlewares=redirect-to-https"
+      
+      # 🔹 Роутер 2: www.reev24.com → HTTPS
+      - "traefik.http.routers.joomla-www.rule=Host(`www.reev24.com`)"
+      - "traefik.http.routers.joomla-www.entrypoints=websecure"
+      - "traefik.http.routers.joomla-www.tls=true"
+      - "traefik.http.routers.joomla-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.joomla-www.service=joomla"  # Тот же сервис!
+      
+      # 🔹 Редирект HTTP → HTTPS для reev24.com
+      - "traefik.http.routers.joomla-main-http.rule=Host(`reev24.com`)"
+      - "traefik.http.routers.joomla-main-http.entrypoints=web"
+      - "traefik.http.routers.joomla-main-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      
+      # 🔹 Редирект HTTP → HTTPS для www.reev24.com
+      - "traefik.http.routers.joomla-www-http.rule=Host(`www.reev24.com`)"
+      - "traefik.http.routers.joomla-www-http.entrypoints=web"
+      - "traefik.http.routers.joomla-www-http.middlewares=redirect-to-https"
 volumes:
   pgdata:
   redisdata:
