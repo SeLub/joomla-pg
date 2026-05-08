@@ -55,18 +55,21 @@ Redis — shared cache layer + async queue for resilient sync
 
 ```
 .
-├── docker-compose.yml          # Full stack orchestration
+├── docker-compose.yml              # Local development (with debug ports)
+├── docker-compose.prod.yml         # Production deployment (secure, no debug ports)
+├── .env.example                    # Template for environment variables (COMMIT THIS)
+├── .gitignore                      # Excludes .env, secrets, node_modules
 ├── README.md
-├── plans/                      # Technical specifications for future work
+├── plans/                          # Technical specifications for future work
 │   ├── plg_system_userconnect.md   # User sync plugin spec
 │   └── web-socket-stream.md        # WebSocket streaming spec
-├── plg_system_joomlageo/       # Joomla plugin for user provisioning
+├── plg_system_joomlageo/           # Joomla plugin for user provisioning
 │   ├── joomlageo.php
 │   ├── joomlageo.xml
 │   └── plg_system_joomlageo.zip
 ├── postgres/
-│   └── init.sql                # DB init: schemas, users, extensions, grants
-└── api/                        # NestJS API server
+│   └── init.sql                    # DB init: schemas, users, extensions, grants
+└── api/                            # NestJS API server
     ├── Dockerfile
     ├── package.json
     ├── tsconfig.json
@@ -75,30 +78,32 @@ Redis — shared cache layer + async queue for resilient sync
         ├── app.module.ts
         ├── database.service.ts
         ├── domains/
-        │   ├── locations/      # Geo endpoints: /api/locations/*
-        │   └── users/          # User provisioning: POST /api/v1/users/provision
-        ├── health/             # GET /api/health
+        │   ├── locations/          # Geo endpoints: /api/locations/*
+        │   └── users/              # User provisioning: POST /api/v1/users/provision
+        ├── health/                 # GET /api/health
         └── shared/
-            ├── database/       # TypeORM config
-            └── entities/       # Cross-schema entities (e.g., JoomlaUser)
+            ├── database/           # TypeORM config
+            └── entities/           # Cross-schema entities (e.g., JoomlaUser)
 ```
 
 ---
 
 ## 🚀 Services
 
-| Service | Container | Port | Description |
-|---|---|---|---|
-| **Joomla** | `joomla-app` | `8080` | CMS frontend and admin panel |
-| **PostgreSQL + PostGIS** | `joomla-pg` | internal | Single DB with two schemas: `joomla` (CMS) + `public` (app) |
-| **NestJS API** | `joomla-api` | `3000` | REST API, business logic, geo queries, WebSocket gateway |
-| **Redis** | `joomla-redis` | internal | Cache + async queue + Pub/Sub for real-time features |
+| Service | Container | Port (Prod) | Port (Dev) | Description |
+|---|---|---|---|---|
+| **Joomla** | `joomla-app` | `80`, `443` | `8080` | CMS frontend and admin panel |
+| **PostgreSQL + PostGIS** | `joomla-pg` | internal only | `5432` (optional) | Single DB with two schemas: `joomla` (CMS) + `public` (app) |
+| **NestJS API** | `joomla-api` | `3000` | `3000` | REST API, business logic, geo queries, WebSocket gateway |
+| **Redis** | `joomla-redis` | internal | internal | Cache + async queue + Pub/Sub for real-time features |
+
+> 🔐 **Security note**: In production, PostgreSQL port 5432 is **not exposed** to the internet. Access is only possible from within the Docker network (`app-net`) or via SSH tunnel.
 
 ---
 
 ## 🔌 API Endpoints
 
-Swagger UI: http://localhost:3000/api/docs
+Swagger UI: http://localhost:3000/api/docs (local) or http://YOUR_SERVER_IP:3000/api/docs (prod)
 
 ### Health
 ```http
@@ -116,7 +121,7 @@ Returns nearest locations using PostGIS KNN (`<->`). Cached in Redis (2 min TTL)
 ```http
 GET /api/locations/route?from=1&to=5
 ```
-Returns pre-calculated route metrics. Cached in Redis (1 hour TTL).
+Returns pre-calculated route distance, duration and price between two location IDs. Cached in Redis (1 hour TTL).
 
 ### User Provisioning (Idempotent)
 ```http
@@ -170,72 +175,330 @@ sequenceDiagram
 
 ---
 
-## 🛠 Getting Started
+## 🌿 Branch Strategy: `main` vs `develop`
 
-### Prerequisites
+| Branch | Purpose | Deployment |
+|--------|---------|-----------|
+| **`develop`** | Active development, feature branches merge here | ❌ Not deployed automatically |
+| **`main`** | Production-ready code, only merged from `develop` via PR | ✅ Auto-deployed via GitHub Actions |
+
+### Workflow:
+```
+feature/new-feature → develop → [PR + review] → main → 🚀 Auto-deploy to production
+```
+
+### Rules:
+- ✅ Direct pushes to `main` are discouraged; use Pull Requests
+- ✅ `develop` can be force-pushed during active development
+- ✅ Tag releases on `main`: `git tag -a v1.0.0 -m "Release 1.0.0"`
+
+---
+
+## 🔄 GitHub Actions Deployment
+
+### File: `.github/workflows/deploy.yml`
+
+```yaml
+name: Build & Deploy
+
+on:
+  push:
+    branches: [ main ]  # Only deploy when main is updated
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to Hetzner via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/joomla-pg
+            
+            echo "🔄 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            echo "🔨 Building API image..."
+            docker compose -f docker-compose.prod.yml build --no-cache api
+            
+            echo "🚀 Starting services..."
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            
+            echo "⏳ Waiting for services..."
+            sleep 20
+            
+            echo "🏥 Health check..."
+            curl -f http://127.0.0.1:3000/api/health || { echo "❌ API Health check failed"; exit 1; }
+            
+            echo "🧹 Cleaning..."
+            docker image prune -f --filter="until=24h"
+            
+            echo "✅ Deploy completed!"
+```
+
+### Required GitHub Secrets (Settings → Secrets and variables → Actions):
+
+| Secret | Description | Example |
+|--------|------------|---------|
+| `HETZNER_HOST` | Server IP address | `91.99.58.149` |
+| `HETZNER_USER` | SSH username | `root` |
+| `HETZNER_SSH_KEY` | Private SSH key for deployment | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+
+> 🔐 **SSH Key Setup**: Generate a dedicated deploy key without passphrase:
+> ```bash
+> ssh-keygen -t ed25519 -f ~/.ssh/github-deploy -C "github-actions@joomla-pg" -N ""
+> ssh-copy-id -i ~/.ssh/github-deploy.pub root@YOUR_SERVER_IP
+> # Then add the PRIVATE key (~/.ssh/github-deploy) to GitHub Secrets
+> ```
+
+---
+
+## 🚀 Production Deployment Guide
+
+### Prerequisites on Server
+- Ubuntu 24.04 LTS
 - Docker Engine ≥ 24.0
 - Docker Compose ≥ v2.20
-- (Optional) `psql` client for manual DB inspection
+- Git
 
-### Installation
+### Step 1: Prepare the Server
 
-1. **Clone and configure**
-   ```bash
-   git clone <repo>
-   cd joomla-pg
-   cp .env.example .env  # Edit if needed (secrets, ports)
-   ```
+```bash
+# Install Docker & Compose
+curl -fsSL https://get.docker.com | sh
+usermod -aG docker $USER && newgrp docker
+apt install -y docker-compose-plugin git curl
 
-2. **Start the stack**
-   ```bash
-   docker compose up -d
-   ```
+# Basic security
+ufw default deny incoming && ufw default allow outgoing
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp
+ufw --force enable
+```
 
-3. **Complete Joomla setup** (first run only)
-   - Visit http://localhost:8080
-   - In installer:
-     - **Database Type**: `PostgreSQL`
-     - **Host**: `joomla-pg`
-     - **Database**: `appdb`
-     - **User**: `joomlauser`
-     - **Password**: `joomlasecret`
-     - **Table Prefix**: `jos_`
-   - ⚠️ Ensure "Create database" is **unchecked** (DB already exists via `init.sql`)
+### Step 2: Clone Repository
 
-4. **Install the sync plugin**
-   ```bash
-   # Via Joomla Admin:
-   # Extensions → Manage → Install → Upload Package
-   # Select: plg_system_joomlageo/plg_system_joomlageo.zip
-   
-   # Then enable:
-   # Extensions → Plugins → System - JoomlaGeo → Enable
-   ```
+```bash
+mkdir -p /opt/joomla-pg && cd /opt/joomla-pg
+git clone https://github.com/SeLub/joomla-pg.git .
+```
 
-5. **Verify connectivity**
-   ```bash
-   # Test API health
-   curl http://localhost:3000/api/health
+### Step 3: Create `.env` File (DO NOT COMMIT)
 
-   # Test provisioning endpoint
-   curl -X POST http://localhost:3000/api/v1/users/provision \
-     -H 'Content-Type: application/json' \
-     -d '{"joomlaUserId":999,"email":"test@example.com","username":"test"}'
+```bash
+# Create .env with real secrets
+cat > .env << 'EOF'
+# === Database ===
+POSTGRES_USER=appuser
+POSTGRES_PASSWORD=YourStrongPasswordHere
+POSTGRES_DB=appdb
 
-   # Check DB: cross-schema query
-   docker exec -it joomla-pg psql -U appuser -d appdb -c "
-     SELECT u.username, a.email 
-     FROM joomla.jos_users u 
-     LEFT JOIN public.app_users a ON a.joomla_id = u.id 
-     WHERE u.id = 999;
-   "
-   ```
+# === API ===
+# 🔥 CRITICAL: Use service name 'postgres', NOT container_name 'joomla-pg'
+DATABASE_URL=postgres://appuser:YourStrongPasswordHere@postgres:5432/appdb
+REDIS_HOST=joomla-redis
+NODE_ENV=production
+PORT=3000
+JWT_SHARED_SECRET=YourVeryLongAndRandomSecretKey2026
 
-### Access Points
-- Joomla frontend: http://localhost:8080
-- Joomla admin: http://localhost:8080/administrator
-- NestJS API: http://localhost:3000/api/health
-- Swagger UI: http://localhost:3000/api/docs
+# === Joomla ===
+JOOMLA_DB_PASSWORD=joomlasecret
+EOF
+chmod 600 .env
+```
+
+> ⚠️ **Critical**: `DATABASE_URL` must use `@postgres:5432` (service name), not `@joomla-pg:5432` (container_name). In custom Docker networks, DNS resolution uses service names.
+
+### Step 4: Deploy with Production Config
+
+```bash
+# Start the stack with production config
+docker compose -f docker-compose.prod.yml up -d --build
+
+# Verify services
+docker ps
+# Expected: joomla-app (ports 80,443), joomla-api (port 3000), joomla-pg (no external port)
+
+# Test API health
+curl -I http://127.0.0.1:3000/api/health
+# Expected: HTTP/1.1 200 OK
+
+# Test Joomla installer
+curl -I http://127.0.0.1/installation/
+# Expected: HTTP/1.1 200 OK
+```
+
+### Step 5: Complete Joomla Installation
+
+1. Open in browser: `http://YOUR_SERVER_IP/installation/`
+2. Configure database:
+   | Field | Value |
+   |-------|-------|
+   | Database Type | `PostgreSQL` |
+   | Host | `postgres` (service name!) |
+   | Port | `5432` |
+   | Username | `joomlauser` |
+   | Password | `joomlasecret` (or your `JOOMLA_DB_PASSWORD`) |
+   | Database Name | `appdb` |
+   | Table Prefix | `jos_` |
+   | Create Database | ❌ **No** (already exists via `init.sql`) |
+3. Complete setup, create admin account
+4. **Delete `/installation` folder** when prompted
+
+---
+
+## 🗄️ docker-compose.prod.yml (Production Configuration)
+
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgis/postgis:15-3.3-alpine
+    container_name: joomla-pg
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-net
+    # 🔒 Port 5432 NOT exposed — access only via internal network
+
+  redis:
+    image: redis:7-alpine
+    container_name: joomla-redis
+    volumes:
+      - redisdata:/data
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: joomla-api
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      REDIS_HOST: ${REDIS_HOST:-joomla-redis}
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: ${PORT:-3000}
+      JWT_SHARED_SECRET: ${JWT_SHARED_SECRET}
+    ports:
+      - "0.0.0.0:3000:3000"  # ✅ Exposed for WebSocket & external API calls
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    networks:
+      - app-net
+
+  joomla:
+    image: joomla:latest
+    container_name: joomla-app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      JOOMLA_DB_TYPE: pgsql
+      JOOMLA_DB_HOST: postgres      # ✅ CRITICAL: service name, NOT container_name
+      JOOMLA_DB_USER: joomlauser
+      JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-joomlasecret}
+      JOOMLA_DB_NAME: ${POSTGRES_DB:-appdb}
+      JOOMLA_DB_PREFIX: jos_
+    volumes:
+      - joomla_data:/var/www/html
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-net
+
+volumes:
+  pgdata:
+  redisdata:
+  joomla_data:
+
+networks:
+  app-net:
+    driver: bridge
+```
+
+---
+
+## ⚙️ Environment Variables Reference
+
+### `.env.example` (Commit this template)
+
+```env
+# .env.example — Template for environment variables (SAFE TO COMMIT)
+# Copy to .env and fill with real values. NEVER commit .env!
+
+# === Database ===
+POSTGRES_USER=appuser
+POSTGRES_PASSWORD=changeme
+POSTGRES_DB=appdb
+
+# === API ===
+# 🔥 CRITICAL: Use 'postgres' (service name), NOT 'joomla-pg' (container_name)
+DATABASE_URL=postgres://appuser:changeme@postgres:5432/appdb
+REDIS_HOST=joomla-redis
+NODE_ENV=production
+PORT=3000
+JWT_SHARED_SECRET=changeme
+
+# === Joomla ===
+# Must match password in postgres/init.sql for joomlauser
+JOOMLA_DB_PASSWORD=joomlasecret
+```
+
+### `.env` (DO NOT COMMIT — Add to .gitignore)
+
+```bash
+# .gitignore should contain:
+.env
+*.env
+*.local
+node_modules/
+dist/
+```
+
+| Variable | Required | Description | Example |
+|----------|----------|-------------|---------|
+| `POSTGRES_USER` | ✅ | PostgreSQL admin user | `appuser` |
+| `POSTGRES_PASSWORD` | ✅ | PostgreSQL password (strong!) | `Str0ng!P@ssw0rd#2026` |
+| `POSTGRES_DB` | ✅ | Database name | `appdb` |
+| `DATABASE_URL` | ✅ | Connection string for NestJS — **use `@postgres:`** | `postgres://appuser:pass@postgres:5432/appdb` |
+| `REDIS_HOST` | | Redis hostname (default: `joomla-redis`) | `joomla-redis` |
+| `NODE_ENV` | | Node environment (`production` recommended) | `production` |
+| `PORT` | | API listen port | `3000` |
+| `JWT_SHARED_SECRET` | ✅ | Secret for JWT signing (long & random) | `V3ryL0ngAndR4nd0mS3cr3tK3y2026` |
+| `JOOMLA_DB_PASSWORD` | ✅ | Password for `joomlauser` — must match `init.sql` | `joomlasecret` |
+
+> ⚠️ **Critical Notes**:
+> 1. `DATABASE_URL` must use `@postgres:5432` (service name), not `@joomla-pg:5432` (container_name)
+> 2. `JOOMLA_DB_PASSWORD` must match the password for `joomlauser` in `postgres/init.sql`
+> 3. Use strong, unique passwords for `POSTGRES_PASSWORD` and `JWT_SHARED_SECRET`
+> 4. Never commit `.env` — use `.env.example` as a template
 
 ---
 
@@ -277,27 +540,6 @@ GRANT ALL ON SCHEMA public TO appuser;
 
 ---
 
-## ⚙️ Environment Variables
-
-### NestJS API (`api` service)
-| Variable | Default | Description |
-|---|---|---|
-| `DATABASE_URL` | — | `postgres://appuser:appsecret@joomla-pg:5432/appdb` |
-| `REDIS_HOST` | `redis` | Redis hostname for cache/queue |
-| `PORT` | `3000` | API listen port |
-| `NODE_ENV` | `development` | `development` or `production` |
-| `JWT_SHARED_SECRET` | — | Secret for internal JWT signing (WebSocket auth) |
-
-### Joomla Plugin (via admin UI)
-| Setting | Default | Description |
-|---|---|---|
-| API Endpoint | `http://joomla-api:3000/api/v1/users` | Provisioning URL (Docker internal) |
-| Timeout | `3` seconds | Max wait for HTTP call (low to avoid blocking UX) |
-| Queue Backend | `redis` | `redis` or `database` fallback |
-| Log Level | `warning` | `debug`, `info`, `warning`, `error` |
-
----
-
 ## 📈 Scaling & Production Readiness
 
 ### Horizontal Scaling
@@ -317,7 +559,25 @@ docker exec joomla-pg pg_dump -U appuser -d appdb --schema=joomla --schema=publi
 
 # Restore
 docker exec -i joomla-pg pg_restore -U appuser -d appdb -c < backup.dump
+
+# Automate with cron (on server):
+0 2 * * * docker exec joomla-pg pg_dump -U appuser -d appdb -Fc > /backups/appdb_$(date +\%F).dump
 ```
+
+---
+
+## 🔐 Security Checklist for Production
+
+- [ ] `.env` file is NOT committed to repository
+- [ ] `DATABASE_URL` uses service name `postgres`, not container_name `joomla-pg`
+- [ ] PostgreSQL port 5432 is NOT exposed to internet (only internal network)
+- [ ] API port 3000 is exposed only if needed for WebSocket/external calls
+- [ ] Strong passwords used for `POSTGRES_PASSWORD`, `JWT_SHARED_SECRET`
+- [ ] `NODE_ENV=production` in production deployment
+- [ ] UFW firewall allows only ports 22, 80, 443 (and 3000 if API is public)
+- [ ] Hetzner Cloud Firewall configured to restrict access (optional but recommended)
+- [ ] Joomla `/installation` folder deleted after setup
+- [ ] Joomla admin account uses strong password + 2FA enabled
 
 ---
 
@@ -353,12 +613,58 @@ See [`plans/`](./plans/) for detailed specifications:
 3. Make integrations async and idempotent by default
 4. Document new endpoints in OpenAPI (Swagger decorators)
 5. Add contract tests for cross-service interactions
+6. Use `develop` branch for features, `main` for production releases
+
+---
+
+## ❓ Troubleshooting
+
+### Joomla cannot connect to database
+```bash
+# Check if joomlauser password matches .env and init.sql
+docker exec joomla-pg psql -U appuser -d appdb -c "\du joomlauser"
+
+# Test connection as joomlauser
+docker exec joomla-pg psql -U joomlauser -d appdb -c "SELECT 1;"
+
+# Check Joomla logs
+docker logs joomla-app | grep -i "connection\|error"
+```
+
+### API cannot connect to database
+```bash
+# Verify DATABASE_URL uses correct host (postgres, not joomla-pg)
+docker compose -f docker-compose.prod.yml config | grep DATABASE_URL
+
+# Test connection from API container
+docker exec joomla-api node -e "require('pg').connect(process.env.DATABASE_URL, (err) => console.log(err || 'Connected'))"
+```
+
+### Site not accessible on port 80
+```bash
+# Check if container is listening
+docker ps | grep joomla-app
+
+# Check UFW firewall
+ufw status | grep "80/tcp"
+
+# Test locally on server
+curl -I http://127.0.0.1/installation/
+
+# Check Hetzner Cloud Firewall rules (if used)
+```
+
+### WebSocket connections failing
+```bash
+# Verify API is listening on 0.0.0.0:3000, not 127.0.0.1:3000
+docker ps | grep joomla-api
+
+# Test API health from external machine
+curl -I http://YOUR_SERVER_IP:3000/api/health
+```
 
 ---
 
 > 💡 **Remember**: The competitive value of this project is the geospatial routing logic and real-time user experience — not the CMS layer. Joomla solves the "website" problem so development effort focuses on the data product.
 
-*Last updated: 2026-04-25*# deploy test Sat Apr 25 03:42:41 PM +03 2026
-# ci-test Sat Apr 25 04:16:02 PM +03 2026
-# deploy-test-1777123739
-# test-1777124090
+*Last updated: 2026-04-26*
