@@ -68,10 +68,19 @@ jobs:
             # =============================================================================
             echo "🧹 Cleaning up old containers..."
             
-            # Корректная остановка сервисов
+            # 1. Останавливаем все контейнеры проекта
             docker compose -f docker-compose.prod.yml down --remove-orphans 2>/dev/null || true
             
-            # 🔥 Аварийная очистка: если порты 80/443 всё ещё заняты
+            # 2. Удаляем контейнер traefik, если он существует
+            docker rm -f reev-traefik 2>/dev/null || true
+            
+            # 3. Останавливаем docker-proxy процессы на портах 80 и 443
+            echo "🛑 Stopping docker-proxy processes..."
+            pkill -f "docker-proxy.*:80" 2>/dev/null || true
+            pkill -f "docker-proxy.*:443" 2>/dev/null || true
+            sleep 3
+            
+            # 4. Проверяем и освобождаем порты 80 и 443
             for port in 80 443; do
               if ss -tlnp 2>/dev/null | grep -q ":$port "; then
                 echo "⚠️ Port $port is still occupied, forcing cleanup..."
@@ -82,20 +91,49 @@ jobs:
                   kill -9 $PID 2>/dev/null || true
                   sleep 2
                 fi
+                
+                # Дополнительно: если это docker-proxy
+                if ss -tlnp 2>/dev/null | grep -q ":$port.*docker-proxy"; then
+                  echo "🔪 Killing docker-proxy on port $port"
+                  pkill -f "docker-proxy.*:$port" 2>/dev/null || true
+                  sleep 2
+                fi
               fi
             done
             
-            # Дополнительная проверка: если docker-proxy всё ещё держит порт
-            if ss -tlnp 2>/dev/null | grep -q ":80.*docker-proxy"; then
-              echo "⚠️ docker-proxy still on port 80, removing container..."
-              docker rm -f reev-traefik 2>/dev/null || true
-              sleep 3
-            fi
+            # 5. Останавливаем другие веб-серверы, которые могут занимать порты
+            echo "🛑 Stopping other web servers..."
+            systemctl stop nginx 2>/dev/null || true
+            systemctl stop apache2 2>/dev/null || true
+            systemctl stop httpd 2>/dev/null || true
+            
+            # 6. Удаляем старые сети, которые могут конфликтовать
+            echo "🌐 Removing old networks..."
+            docker network rm reev_reev-net 2>/dev/null || true
+            sleep 2
             
             echo "✅ Cleanup completed"
             
             # =============================================================================
-            # 4. Сборка и запуск сервисов
+            # 4. Проверка, что порты свободны
+            # =============================================================================
+            echo "🔍 Checking if ports 80 and 443 are free..."
+            for port in 80 443; do
+              if ss -tlnp 2>/dev/null | grep -q ":$port "; then
+                echo "❌ ERROR: Port $port is still occupied after cleanup!"
+                echo "Processes holding port $port:"
+                ss -tlnp 2>/dev/null | grep ":$port " || true
+                echo ""
+                echo "Full process list:"
+                ps aux | grep -E "(docker|traefik|nginx|apache)" || true
+                exit 1
+              else
+                echo "✅ Port $port is free"
+              fi
+            done
+            
+            # =============================================================================
+            # 5. Сборка и запуск сервисов
             # =============================================================================
             echo "🔨 Building images (api + astro)..."
             docker compose -f docker-compose.prod.yml build --no-cache api astro
@@ -105,7 +143,7 @@ jobs:
             docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
             
             # =============================================================================
-            # 5. Ждём инициализации и проверяем здоровье
+            # 6. Ждём инициализации и проверяем здоровье
             # =============================================================================
             echo "⏳ Waiting for services to initialize..."
             sleep 45  # Даём время на миграции БД и получение сертификатов
@@ -139,7 +177,7 @@ jobs:
               echo "⚠️ External Astro check failed (DNS/SSL may be propagating)"
             
             # =============================================================================
-            # 6. Очистка старых образов (экономия места на диске)
+            # 7. Очистка старых образов (экономия места на диске)
             # =============================================================================
             echo "🧹 Cleaning up old images..."
             docker image prune -f --filter="until=24h"
