@@ -43,7 +43,9 @@ certificatesResolvers:
       storage: /acme.json
       dnsChallenge:
         provider: cloudflare
-        delayBeforeCheck: 30
+        # ✅ Новый синтаксис для Traefik v3.6+
+        propagation:
+          delayBeforeCheck: 60  # 👈 Увеличили с 30 до 60 секунд
         resolvers:
           - "1.1.1.1:53"
           - "8.8.8.8:53"

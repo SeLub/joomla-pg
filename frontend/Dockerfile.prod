@@ -29,11 +29,12 @@ WORKDIR /app
 RUN apk add --no-cache curl
 
 # Устанавливаем serve
-RUN corepack enable && corepack prepare pnpm@11 --activate && \
-    npm install -g serve
+# RUN corepack enable && corepack prepare pnpm@11 --activate && \
+#     npm install -g serve
 
 # Копируем только dist
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
 
 EXPOSE 4321
-CMD ["serve", "dist", "-l", "4321", "--single"]
+CMD ["node", "dist/server/entry.mjs"]

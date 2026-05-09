@@ -4,15 +4,15 @@ import sitemap from '@astrojs/sitemap';
 import react from '@astrojs/react';
 import icon from 'astro-icon';
 import tailwindcss from '@tailwindcss/vite';
-import vercel from '@astrojs/vercel';
-import netlify from '@astrojs/netlify';
-
-const isNetlify = process.env.DEPLOY_TARGET === 'netlify';
+import node from '@astrojs/node';
 
 export default defineConfig({
-  output: 'static',
-  adapter: isNetlify ? netlify() : vercel(),
-  site: process.env.SITE_URL || 'https://example.com',
+  output: 'hybrid',
+    adapter: node({
+    mode: 'standalone',  // Запускаем как обычный Node.js сервер
+    port: 4321,          // Порт должен совпадать с EXPOSE в Dockerfile
+  }),
+  site: process.env.SITE_URL || 'https://reev24.com/',
 
   build: {
     inlineStylesheets: 'always',
