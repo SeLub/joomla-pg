@@ -1,23 +1,18 @@
+# docker-compose.prod.yml
 services:
   # 🗄️ PostgreSQL (без проброса портов — только внутренняя сеть)
   postgres:
     image: postgis/postgis:15-3.3-alpine
     container_name: reev-postgres
     environment:
-<<<<<<< HEAD
-      POSTGRES_USER: ${POSTGRES_USER:-appuser}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-appdb}
-=======
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
->>>>>>> develop
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       retries: 5
     networks: [reev-net]
@@ -119,39 +114,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      # Опционально: панель мониторинга (защитите паролем в продакшене!)
-      # - "8080:8080"
-    environment:
-      - DOCKER_API_VERSION=1.40
-      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}  # ← Создайте в Cloudflare API
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro  # Авто-обнаружение сервисов
-      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
-      - ./traefik/acme.json:/acme.json  # Сертификаты Let's Encrypt
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "traefik", "healthcheck", "--ping"]
-      interval: 30s
-      retries: 3
-      start_period: 10s
-    networks:
-      - app-net
-    labels:
-      # Защита панели мониторинга (базовая аутентификация)
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.rule=Host(`traefik.reev24.com`)"
-      - "traefik.http.routers.traefik.service=api@internal"
-      - "traefik.http.routers.traefik.tls=true"
-      - "traefik.http.routers.traefik.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.traefik.middlewares=admin-auth"
-      - "traefik.http.middlewares.admin-auth.basicauth.users="
-
-  # ===========================
-  # 🟡 JOOMLA
-  # ===========================
-  joomla:
-    image: joomla:latest
-    container_name: joomla-app
     environment:
       - DOCKER_API_VERSION=1.40
       - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
