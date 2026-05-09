@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite';
 import node from '@astrojs/node';
 
 export default defineConfig({
-  output: 'hybrid',
+  output: 'static',
     adapter: node({
     mode: 'standalone',  // Запускаем как обычный Node.js сервер
     port: 4321,          // Порт должен совпадать с EXPOSE в Dockerfile
