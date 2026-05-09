@@ -4,7 +4,7 @@ global:
   sendAnonymousUsage: false
 
 # ===========================
-# 🌐 Entry Points (порты)
+# 🌐 Entry Points
 # ===========================
 entryPoints:
   web:
@@ -14,15 +14,15 @@ entryPoints:
         entryPoint:
           to: websecure
           scheme: https
-    forwardedHeaders:
-      insecure: true
+      forwardedHeaders:
+        insecure: true  # 👈 Критично для Cloudflare
   websecure:
     address: ":443"
     http:
       tls:
         certResolver: letsencrypt
-    forwardedHeaders:
-      insecure: true
+      forwardedHeaders:
+        insecure: true  # 👈 Критично для Cloudflare
 
 # ===========================
 # 📋 Providers
@@ -30,25 +30,25 @@ entryPoints:
 providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
-    exposedByDefault: false  # Только сервисы с traefik.enable=true
+    exposedByDefault: false
 
 # ===========================
-# 🔐 Let's Encrypt
+# 🔐 Let's Encrypt (Cloudflare DNS)
 # ===========================
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: siteup24@gmail.com
+      email: siteup24@gmail.com  # ✅ Ваш email
       storage: /acme.json
-      dnsChallenge:  # ← Вместо httpChallenge
+      dnsChallenge:
         provider: cloudflare
-        delayBeforeCheck: 30  # Ждём пропагации DNS
+        delayBeforeCheck: 30  # 👈 Ждём пропагации DNS
         resolvers:
           - "1.1.1.1:53"
           - "8.8.8.8:53"
 
 # ===========================
-# 📊 Logs & Access (опционально)
+# 📊 Logs & Health
 # ===========================
 log:
   level: INFO
@@ -66,4 +66,4 @@ ping:
 
 api:
   dashboard: true
-  insecure: false 
+  insecure: false
