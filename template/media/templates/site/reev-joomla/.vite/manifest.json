@@ -1,0 +1,21 @@
+{
+  "src/assets/fonts/Sora/Sora-Bold.woff2": {
+    "file": "fonts/Sora/Sora-Bold.woff2",
+    "src": "src/assets/fonts/Sora/Sora-Bold.woff2"
+  },
+  "src/assets/fonts/Sora/Sora-Regular.woff2": {
+    "file": "fonts/Sora/Sora-Regular.woff2",
+    "src": "src/assets/fonts/Sora/Sora-Regular.woff2"
+  },
+  "src/js/main.js": {
+    "file": "js/app.js",
+    "name": "app",
+    "src": "src/js/main.js",
+    "isEntry": true
+  },
+  "src/scss/template.scss": {
+    "file": "css/template.css",
+    "src": "src/scss/template.scss",
+    "isEntry": true
+  }
+}

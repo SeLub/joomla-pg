@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="template" client="site" method="upgrade">
+  <name>reev-joomla</name>
+  <version>1.0.0</version>
+  <creationDate>2026-01-01</creationDate>
+  <author>Alice</author>
+  <description>Minimal business consulting template for Joomla 6</description>
+  
+  <files>
+    <filename>index.php</filename>
+    <filename>templateDetails.xml</filename>
+    <filename>installer.script.php</filename>
+    <filename>joomla.asset.json</filename>
+    <filename>error.php</filename>
+    <folder>html</folder>
+  </files>
+  
+  <media destination="templates/site/reev-joomla" folder="media">
+    <folder>css</folder>
+    <folder>js</folder>
+    <folder>images</folder>
+  </media>
+  
+  <positions>
+    <!-- Header & Navigation -->
+    <position>header</position>
+    
+    <!-- Main Content Areas -->
+    <position>hero</position>
+    <position>content-top</position>
+    <position>content-bottom</position>
+    
+    <!-- Footer -->
+    <position>footer-widgets</position>
+    <position>copyright</position>
+    
+    <!-- System -->
+    <position>debug</position>
+  </positions>
+  
+  <config>
+    <fields name="params">
+      <fieldset name="basic">
+        <field name="showPositions" type="radio" label="Show Module Positions" 
+               default="0" class="btn-group btn-group-yesno">
+          <option value="0">JNO</option>
+          <option value="1">JYES</option>
+        </field>
+      </fieldset>
+    </fields>
+  </config>
+</extension>

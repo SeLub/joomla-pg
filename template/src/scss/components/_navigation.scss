@@ -1,0 +1,196 @@
+// src/scss/components/_navigation.scss
+
+// =============================================================================
+// Header - Sticky navigation bar
+// =============================================================================
+
+.site-header {
+  @apply sticky top-0 z-50 backdrop-blur-md border-b transition-all duration-300;
+  
+  // Цвета через CSS-переменные (OKLCH)
+  background-color: var(--background);
+  border-color: var(--border);
+  
+  // Тень с лайм-оттенком (произвольное значение)
+  box-shadow: 0 1px 2px oklch(20% 0.01 130 / 0.06);
+  
+  &.scrolled {
+    box-shadow: 0 4px 12px oklch(20% 0.01 130 / 0.08);
+  }
+}
+
+// =============================================================================
+// Desktop Menu - mod_menu output
+// =============================================================================
+
+.mod-menu {
+  // Базовый список
+  & > ul {
+    @apply flex items-center gap-1 list-none m-0 p-0;
+  }
+  
+  // Элементы меню
+  & > ul > li {
+    @apply relative;
+    
+    // Ссылки и спаны
+    & > a,
+    & > span {
+      @apply inline-flex items-center px-3 py-2 text-sm font-medium rounded-md 
+             transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+      
+      // Цвета через переменные
+      color: var(--foreground-secondary);
+      
+      // Hover-состояния с прозрачностью через color-mix
+      &:hover {
+        color: var(--accent);
+        background-color: color-mix(in oklch, var(--accent-light) 50%, transparent);
+      }
+      
+      // Focus-состояния
+      &:focus {
+        --tw-ring-color: var(--accent);
+        --tw-ring-offset-color: var(--background);
+      }
+      
+      // Активный пункт
+      &.active {
+        color: var(--accent);
+        font-weight: 600;
+        background-color: color-mix(in oklch, var(--accent-light) 40%, transparent);
+      }
+      
+      // Стрелочка для подменю
+      &.parent {
+        @apply pr-6 relative;
+        
+        &::after {
+          content: '';
+          @apply absolute right-3 top-1/2 -translate-y-1/2 
+                 w-2 h-2 border-r-2 border-b-2 rotate-45 
+                 transition-transform duration-200 inline-block;
+          border-color: var(--foreground-muted);
+        }
+        
+        &:hover::after {
+          transform: rotate(225deg) translate(-50%, -50%);
+          border-color: var(--accent);
+        }
+      }
+    }
+    
+    // Выпадающее подменю (десктоп)
+    & > ul {
+      @apply absolute left-0 top-full mt-2 min-w-[220px] rounded-lg 
+             opacity-0 invisible -translate-y-2 transition-all duration-200 
+             z-50 py-1;
+      
+      // Фон и границы через переменные
+      background-color: var(--card);
+      border: 1px solid var(--card-border);
+      box-shadow: 0 10px 25px oklch(20% 0.01 130 / 0.1);
+      
+      // Вложенные ссылки
+      li a {
+        @apply block px-4 py-2.5 text-sm transition-colors;
+        color: var(--foreground-secondary);
+        
+        &:hover {
+          color: var(--accent);
+          background-color: color-mix(in oklch, var(--accent-light) 30%, transparent);
+        }
+        
+        &.active {
+          color: var(--accent);
+          font-weight: 500;
+        }
+      }
+      
+      // Показ подменю при ховере
+      &:hover {
+        @apply opacity-100 visible translate-y-0;
+      }
+      
+      // Под-подменю (вправо)
+      ul {
+        @apply left-full top-0 mt-0 ml-1;
+      }
+    }
+  }
+}
+
+// =============================================================================
+// Mobile Menu - Drawer panel
+// =============================================================================
+
+#mobile-menu {
+  // Фон и границы через переменные
+  background-color: var(--card);
+  border-top: 1px solid var(--border-strong);
+  
+  // Анимация появления
+  &:not(.hidden) {
+    animation: slideDown 0.25s ease-out;
+  }
+  
+  .mod-menu {
+    & > ul {
+      @apply flex flex-col gap-1 py-2;
+    }
+    
+    & > ul > li > a {
+      @apply block px-4 py-3 text-base font-medium rounded-lg transition-colors;
+      color: var(--foreground-secondary);
+      
+      &:hover {
+        color: var(--accent);
+        background-color: color-mix(in oklch, var(--accent-light) 40%, transparent);
+      }
+      
+      &.active {
+        color: var(--accent);
+        font-weight: 500;
+      }
+      
+      &.parent::after {
+        @apply float-right mt-1;
+      }
+    }
+    
+    // Вложенные уровни
+    ul ul {
+      @apply pl-4 border-l ml-2;
+      border-color: var(--border);
+    }
+  }
+}
+
+// =============================================================================
+// Animations
+// =============================================================================
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// =============================================================================
+// Dark Mode Support (automatic via html.dark class)
+// =============================================================================
+
+// Все переменные (--background, --accent, etc.) уже переопределяются
+// в html.dark через template.scss, поэтому дополнительные стили не нужны.
+// Просто убедитесь, что в template.scss есть:
+//
+// html.dark {
+//   --background: oklch(9.5% 0.014 130);
+//   --foreground: oklch(91% 0.010 130);
+//   ...
+// }

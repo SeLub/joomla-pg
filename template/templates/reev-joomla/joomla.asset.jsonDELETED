@@ -1,0 +1,19 @@
+{
+  "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
+  "name": "reev-joomla",
+  "version": "1.0.0",
+  "assets": [
+    {
+      "name": "template.style",
+      "type": "style",
+      "uri": "css/template.css"
+    },
+    {
+      "name": "template.script",
+      "type": "script",
+      "uri": "js/app.js",
+      "dependencies": ["core"],
+      "attributes": { "type": "module" }
+    }
+  ]
+}

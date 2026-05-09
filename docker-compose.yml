@@ -55,8 +55,18 @@ services:
       JOOMLA_DB_PASSWORD: joomlasecret
       JOOMLA_DB_NAME: appdb
       JOOMLA_DB_PREFIX: jos_
+
+      PHP_UPLOAD_MAX_FILESIZE: "64M"
+      PHP_POST_MAX_SIZE: "64M"
+      PHP_MEMORY_LIMIT: "256M"
+      PHP_MAX_EXECUTION_TIME: "300"
     volumes:
       - joomla_data:/var/www/html
+      - ./template/templates/reev-joomla:/var/www/html/templates/reev-joomla
+      - ./template/media/templates/site/reev-joomla:/var/www/html/media/templates/site/reev-joomla
+      - ./template/templates/cassiopeia/css:/var/www/html/templates/cassiopeia/css:cached
+      - ./template/templates/cassiopeia/js:/var/www/html/templates/cassiopeia/js:cached
+      - ./template/templates/cassiopeia/html:/var/www/html/templates/cassiopeia/html:cached
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,131 @@
+// =============================================================================
+// Reev Joomla Template - Main Stylesheet
+// =============================================================================
+@use 'components/navigation';
+// 👇 Tailwind v3: три обязательные директивы
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+// 👇 @use ДОЛЖЕН идти сразу после @tailwind, перед любыми другими правилами
+
+// @use 'components/buttons';
+// @use 'components/cards';
+
+// =============================================================================
+// Шрифты: Sora
+// =============================================================================
+
+@font-face {
+  font-family: 'Sora';
+  src: url('../assets/fonts/Sora/Sora-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Sora';
+  src: url('../assets/fonts/Sora/Sora-Bold.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+
+// =============================================================================
+// CSS-переменные: Цветовая схема "Electric Lime" (OKLCH)
+// =============================================================================
+
+@layer base {
+  :root {
+    /* Brand Scale — Electric Lime (hue 130°) */
+    --brand-50:  oklch(97.5% 0.03  130);
+    --brand-100: oklch(94%   0.06  130);
+    --brand-200: oklch(87%   0.12  130);
+    --brand-300: oklch(80%   0.19  130);
+    --brand-400: oklch(72%   0.25  130);
+    --brand-500: oklch(64%   0.27  130);
+    --brand-600: oklch(54%   0.23  130);
+    --brand-700: oklch(45%   0.19  130);
+    --brand-800: oklch(36%   0.14  130);
+    --brand-900: oklch(25%   0.09  130);
+
+    /* Semantic Tokens — Light Mode */
+    --background: oklch(100% 0 0);
+    --background-secondary: oklch(97.5% 0.010 130);
+    --foreground: oklch(18% 0.02 130);
+    --foreground-secondary: oklch(30% 0.03 130);
+    --foreground-muted: oklch(45% 0.04 130);
+    --border: oklch(90% 0.02 130);
+    --border-strong: oklch(80% 0.03 130);
+    --card: oklch(100% 0 0);
+    --card-border: oklch(90% 0.02 130);
+    --accent: var(--brand-500);
+    --accent-hover: var(--brand-600);
+    --accent-light: var(--brand-100);
+    --shadow-sm: 0 1px 2px oklch(20% 0.01 130 / 0.06);
+    --shadow-md: 0 4px 8px oklch(20% 0.01 130 / 0.08);
+    --shadow-lg: 0 8px 16px oklch(20% 0.01 130 / 0.1);
+    --gradient-start: oklch(100% 0 0);
+    --gradient-end: oklch(97.5% 0.010 130);
+  }
+
+  html.dark {
+    --background: oklch(9.5% 0.014 130);
+    --background-secondary: oklch(15% 0.012 130);
+    --foreground: oklch(91% 0.010 130);
+    --foreground-secondary: oklch(82% 0.012 130);
+    --foreground-muted: oklch(68% 0.010 130);
+    --border: oklch(20% 0.012 130);
+    --border-strong: oklch(27% 0.010 130);
+    --card: oklch(15% 0.012 130);
+    --card-border: oklch(23% 0.010 130);
+    --accent: var(--brand-400);
+    --accent-hover: var(--brand-500);
+    --accent-light: oklch(18% 0.07 130);
+    --shadow-sm: 0 1px 3px oklch(9% 0.02 130 / 0.35);
+    --shadow-md: 0 4px 12px oklch(9% 0.02 130 / 0.4);
+    --shadow-lg: 0 8px 24px oklch(9% 0.02 130 / 0.45);
+    --gradient-start: oklch(9.5% 0.014 130);
+    --gradient-end: oklch(13% 0.012 130);
+  }
+
+  /* Глобальные стили */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background-color: var(--background);
+    color: var(--foreground);
+    line-height: 1.6;
+  }
+
+  .container-reev {
+    @apply w-full max-w-[1296px] mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .sr-only {
+    @apply absolute w-px h-px p-0 -m-px overflow-hidden whitespace-nowrap border-0;
+  }
+}
+
+// =============================================================================
+// Утилиты (кастомные)
+// =============================================================================
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .overflow-hidden {
+    overflow: hidden;
+  }
+}

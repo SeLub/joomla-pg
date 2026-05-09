@@ -1,0 +1,24 @@
+{
+  "name": "reev-joomla-template",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host",
+    "zip": "node build/zip-template.js",
+    "docker:restart": "docker-compose restart joomla",
+    "dev:docker": "concurrently \"npm run dev\" \"npm run docker:restart\""
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "archiver": "^8.0.0",
+    "autoprefixer": "^10.5.0",
+    "concurrently": "^9.2.1",
+    "fs-extra": "^11.3.5",
+    "postcss": "^8.5.14",
+    "sass": "^1.99.0",
+    "tailwindcss": "^3.4.19",
+    "vite": "^5.4.21"
+  }
+}
