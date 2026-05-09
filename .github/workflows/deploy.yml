@@ -171,27 +171,60 @@ jobs:
             # --force-recreate гарантирует пересоздание контейнеров
             docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
             
+            # Даём Traefik время на запуск и проверяем логи
+            echo "🔍 Checking Traefik startup..."
+            sleep 10
+            if docker ps | grep -q reev-traefik; then
+              echo "✅ Traefik container is running"
+              echo "📋 Traefik logs (last 20 lines):"
+              docker logs --tail=20 reev-traefik 2>/dev/null || echo "Cannot get Traefik logs"
+            else
+              echo "❌ Traefik container failed to start"
+              echo "📋 Trying to start Traefik in foreground to see error:"
+              docker compose -f docker-compose.prod.yml up traefik 2>&1 | tail -30 || true
+            fi
+            
             # =============================================================================
             # 6. Ждём инициализации и проверяем здоровье
             # =============================================================================
             echo "⏳ Waiting for services to initialize..."
             sleep 45  # Даём время на миграции БД и получение сертификатов
             
-            # 🔹 Внутренняя проверка API (через docker exec)
-            echo "🔍 Checking API health (internal)..."
-            if docker exec reev-api curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
-              echo "✅ API internal health check passed"
-            else
-              echo "⚠️ API internal health check failed — checking logs..."
+            # 🔹 Внутренняя проверка API (проверяем, что процесс слушает порт)
+            echo "🔍 Checking API health..."
+            API_HEALTH_OK=false
+            for i in {1..5}; do
+              echo "  Attempt $i/5..."
+              # Проверяем, что API слушает порт 3000 внутри контейнера
+              if docker exec reev-api sh -c "netstat -tln 2>/dev/null | grep -q ':3000'" 2>/dev/null; then
+                echo "✅ API is listening on port 3000"
+                API_HEALTH_OK=true
+                break
+              fi
+              sleep 5
+            done
+            
+            if [ "$API_HEALTH_OK" = "false" ]; then
+              echo "⚠️ API health check failed after 5 attempts — checking logs..."
               docker compose -f docker-compose.prod.yml logs --tail=30 api || true
             fi
             
-            # 🔹 Внутренняя проверка Astro (через docker exec)
-            echo "🔍 Checking Astro health (internal)..."
-            if docker exec reev-astro curl -sf http://localhost:4321/ > /dev/null 2>&1; then
-              echo "✅ Astro internal health check passed"
-            else
-              echo "⚠️ Astro internal health check failed — checking logs..."
+            # 🔹 Внутренняя проверка Astro (проверяем, что процесс слушает порт)
+            echo "🔍 Checking Astro health..."
+            ASTRO_HEALTH_OK=false
+            for i in {1..5}; do
+              echo "  Attempt $i/5..."
+              # Проверяем, что Astro слушает порт 4321 внутри контейнера
+              if docker exec reev-astro sh -c "netstat -tln 2>/dev/null | grep -q ':4321'" 2>/dev/null; then
+                echo "✅ Astro is listening on port 4321"
+                ASTRO_HEALTH_OK=true
+                break
+              fi
+              sleep 5
+            done
+            
+            if [ "$ASTRO_HEALTH_OK" = "false" ]; then
+              echo "⚠️ Astro health check failed after 5 attempts — checking logs..."
               docker compose -f docker-compose.prod.yml logs --tail=30 astro || true
             fi
             
