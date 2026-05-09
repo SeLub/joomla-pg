@@ -24,6 +24,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# 👇 Добавляем curl для health checks и отладки
+RUN apk add --no-cache curl
+
 # Копируем собранный код и манифесты
 COPY --from=builder /app/dist ./dist
 COPY package.json pnpm-lock.yaml .npmrc ./

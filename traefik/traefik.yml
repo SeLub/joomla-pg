@@ -9,20 +9,21 @@ global:
 entryPoints:
   web:
     address: ":80"
+    # ✅ forwardedHeaders напрямую в entryPoint (не в http!)
+    forwardedHeaders:
+      insecure: true
     http:
       redirections:
         entryPoint:
           to: websecure
           scheme: https
-      forwardedHeaders:
-        insecure: true  # 👈 Критично для Cloudflare
   websecure:
     address: ":443"
+    forwardedHeaders:
+      insecure: true
     http:
       tls:
         certResolver: letsencrypt
-      forwardedHeaders:
-        insecure: true  # 👈 Критично для Cloudflare
 
 # ===========================
 # 📋 Providers
@@ -38,11 +39,11 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: siteup24@gmail.com  # ✅ Ваш email
+      email: siteup24@gmail.com
       storage: /acme.json
       dnsChallenge:
         provider: cloudflare
-        delayBeforeCheck: 30  # 👈 Ждём пропагации DNS
+        delayBeforeCheck: 30
         resolvers:
           - "1.1.1.1:53"
           - "8.8.8.8:53"
