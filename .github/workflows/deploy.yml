@@ -15,7 +15,7 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.2.2
 
       - name: Deploy to Hetzner via SSH
         uses: appleboy/ssh-action@v1
@@ -74,11 +74,29 @@ jobs:
             # 2. Удаляем контейнер traefik, если он существует
             docker rm -f reev-traefik 2>/dev/null || true
             
-            # 3. Останавливаем docker-proxy процессы на портах 80 и 443
+            # 3. Останавливаем docker-proxy процессы на портах 80 и 443 (безопасно)
             echo "🛑 Stopping docker-proxy processes..."
-            pkill -f "docker-proxy.*:80" 2>/dev/null || true
-            pkill -f "docker-proxy.*:443" 2>/dev/null || true
-            sleep 3
+            # Находим PID docker-proxy процессов и останавливаем их, если они не связаны с текущей SSH сессией
+            for port in 80 443; do
+              # Получаем PID docker-proxy для порта
+              PID=$(ss -tlnp 2>/dev/null | grep ":$port.*docker-proxy" | grep -oP 'pid=\K[0-9]+' | head -1)
+              if [ -n "$PID" ]; then
+                # Проверяем, что это не текущий SSH процесс
+                SSH_PID=$(ps -o ppid= -p $$)
+                if [ "$PID" != "$SSH_PID" ] && [ "$PID" != "$$" ]; then
+                  echo "🔪 Stopping docker-proxy PID $PID on port $port"
+                  kill -TERM $PID 2>/dev/null || true
+                  sleep 2
+                  # Если не остановился, убиваем
+                  if ps -p $PID > /dev/null 2>&1; then
+                    kill -KILL $PID 2>/dev/null || true
+                  fi
+                else
+                  echo "⚠️ Skipping docker-proxy PID $PID (current SSH session)"
+                fi
+              fi
+            done
+            sleep 2
             
             # 4. Проверяем и освобождаем порты 80 и 443
             for port in 80 443; do
@@ -95,17 +113,28 @@ jobs:
                 # Дополнительно: если это docker-proxy
                 if ss -tlnp 2>/dev/null | grep -q ":$port.*docker-proxy"; then
                   echo "🔪 Killing docker-proxy on port $port"
-                  pkill -f "docker-proxy.*:$port" 2>/dev/null || true
+                  # Безопасное убийство docker-proxy
+                  PID=$(ss -tlnp 2>/dev/null | grep ":$port.*docker-proxy" | grep -oP 'pid=\K[0-9]+' | head -1)
+                  if [ -n "$PID" ]; then
+                    SSH_PID=$(ps -o ppid= -p $$)
+                    if [ "$PID" != "$SSH_PID" ] && [ "$PID" != "$$" ]; then
+                      kill -KILL $PID 2>/dev/null || true
+                    fi
+                  fi
                   sleep 2
                 fi
               fi
             done
             
-            # 5. Останавливаем другие веб-серверы, которые могут занимать порты
-            echo "🛑 Stopping other web servers..."
-            systemctl stop nginx 2>/dev/null || true
-            systemctl stop apache2 2>/dev/null || true
-            systemctl stop httpd 2>/dev/null || true
+            # 5. Останавливаем другие веб-серверы, которые могут занимать порты (если они не нужны)
+            echo "🛑 Checking other web servers..."
+            # Только останавливаем, если они действительно запущены и занимают порты
+            for service in nginx apache2 httpd; do
+              if systemctl is-active --quiet $service 2>/dev/null; then
+                echo "⚠️ Stopping $service service"
+                systemctl stop $service 2>/dev/null || true
+              fi
+            done
             
             # 6. Удаляем старые сети, которые могут конфликтовать
             echo "🌐 Removing old networks..."
