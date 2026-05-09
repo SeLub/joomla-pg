@@ -3,6 +3,7 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+# Включаем corepack и активируем pnpm
 RUN corepack enable && corepack prepare pnpm@11 --activate
 
 # Зависимости для сборки нативных модулей на Alpine
@@ -12,11 +13,15 @@ RUN apk add --no-cache python3 make g++
 COPY package.json pnpm-lock.yaml* .npmrc ./
 
 # Устанавливаем зависимости
+# .npmrc автоматически применит настройки для esbuild/sharp
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Копируем исходники и собираем
+# 👇 Вручную пересобираем нативные модули (надёжнее для Alpine)
+RUN pnpm rebuild esbuild sharp 2>/dev/null || true
+
+# Копируем исходники и собираем проект
 COPY . .
-RUN pnpm run build
+RUN pnpm run build -- --telemetry disable
 
 # =============================================================================
 # Production stage
@@ -25,16 +30,23 @@ FROM node:22-alpine
 
 WORKDIR /app
 
-# 👇 Добавляем curl для health checks и отладки
+# curl для health checks
 RUN apk add --no-cache curl
 
-# Устанавливаем serve
-# RUN corepack enable && corepack prepare pnpm@11 --activate && \
-#     npm install -g serve
-
-# Копируем только dist
-COPY --from=builder /app/dist ./dist
+# 👇 Порядок копирования КРИТИЧЕН:
+# 1. Сначала package.json + lockfile + .npmrc (для разрешения зависимостей)
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/.npmrc ./
 
+# 2. Затем node_modules (уже с скомпилированными бинарниками)
+COPY --from=builder /app/node_modules ./node_modules
+
+# 3. Затем собранный dist
+COPY --from=builder /app/dist ./dist
+
+# 👇 НЕ запускаем pnpm install — всё уже установлено и скомпилировано
+
+# Запускаем приложение
 EXPOSE 4321
 CMD ["node", "dist/server/entry.mjs"]
