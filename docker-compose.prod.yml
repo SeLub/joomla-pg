@@ -1,79 +1,121 @@
 services:
+  # 🗄️ PostgreSQL (без проброса портов — только внутренняя сеть)
   postgres:
     image: postgis/postgis:15-3.3-alpine
-    container_name: joomla-pg
+    container_name: reev-postgres
     environment:
+<<<<<<< HEAD
       POSTGRES_USER: ${POSTGRES_USER:-appuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-appdb}
+=======
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+>>>>>>> develop
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-appdb}"]
       interval: 10s
       retries: 5
-      start_period: 30s
-    networks:
-      - app-net
-    # 🔒 Порт 5432 НЕ пробрасываем! Доступ только изнутри сети app-net
+    networks: [reev-net]
 
+  # 🗃️ Redis
   redis:
     image: redis:7-alpine
-    container_name: joomla-redis
+    container_name: reev-redis
     volumes:
       - redisdata:/data
     restart: unless-stopped
-    networks:
-      - app-net
+    networks: [reev-net]
 
+  # 🔌 API (Node.js backend)
   api:
     build:
       context: ./api
       dockerfile: Dockerfile
-    container_name: joomla-api
+    container_name: reev-api
     environment:
       DATABASE_URL: ${DATABASE_URL}
-      REDIS_HOST: ${REDIS_HOST:-joomla-redis}
-      NODE_ENV: ${NODE_ENV:-production}
-      PORT: ${PORT:-3000}
+      REDIS_HOST: reev-redis
+      NODE_ENV: production
+      PORT: 3000
       JWT_SHARED_SECRET: ${JWT_SHARED_SECRET}
-    ports:
-      # ✅ Безопасный проброс только для localhost. Доступно только с самого сервера (не из интернета). Удобно для отладки и health checks.
-      - "127.0.0.1:3000:3000"
+    expose:
+      - "3000"  # ✅ Только внутри сети, не пробрасываем наружу
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      traefik:
-        condition: service_started
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+      traefik: { condition: service_started }
     restart: unless-stopped
-    networks:
-      - app-net
+    networks: [reev-net]
     labels:
       - "traefik.enable=true"
-      # Маршрут: api.reev24.com → joomla-api:3000
       - "traefik.http.routers.api.rule=Host(`api.reev24.com`)"
       - "traefik.http.routers.api.entrypoints=websecure"
       - "traefik.http.routers.api.tls=true"
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
       - "traefik.http.routers.api.service=api-service"
       - "traefik.http.services.api-service.loadbalancer.server.port=3000"
-      # CORS middleware для API (опционально)
+      # CORS для API
       - "traefik.http.middlewares.api-cors.headers.accessControlAllowMethods=GET,POST,PUT,DELETE,OPTIONS"
       - "traefik.http.middlewares.api-cors.headers.accessControlAllowHeaders=Content-Type,Authorization"
-      - "traefik.http.middlewares.api-cors.headers.accessControlAllowOriginList=*"
-      - "traefik.http.middlewares.api-cors.headers.accessControlMaxAge=100"  # опционально
-      - "traefik.http.middlewares.api-cors.headers.addVaryHeader=true"       # опционально
+      - "traefik.http.middlewares.api-cors.headers.accessControlAllowOriginList=https://reev24.com,https://www.reev24.com"
+      - "traefik.http.middlewares.api-cors.headers.accessControlMaxAge=100"
+      - "traefik.http.middlewares.api-cors.headers.addVaryHeader=true"
       - "traefik.http.routers.api.middlewares=api-cors"
-  # ===========================
-  # 🚦 TRAEFIK - API Gateway
-  # ===========================
+
+  # 🚀 Astro (frontend — замена Joomla)
+  astro:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod  # multi-stage, см. ниже
+    container_name: reev-astro
+    environment:
+      - NODE_ENV=production
+      - PUBLIC_API_URL=https://api.reev24.com  # ✅ Публичный URL для фронтенда
+      - PUBLIC_SITE_URL=https://reev24.com
+    expose:
+      - "4321"
+    depends_on:
+      - traefik
+    restart: unless-stopped
+    networks: [reev-net]
+    labels:
+      - "traefik.enable=true"
+      
+      # 🔹 Основной домен: reev24.com
+      - "traefik.http.routers.astro-main.rule=Host(`reev24.com`)"
+      - "traefik.http.routers.astro-main.entrypoints=websecure"
+      - "traefik.http.routers.astro-main.tls=true"
+      - "traefik.http.routers.astro-main.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.astro-main.service=astro-main"
+      - "traefik.http.services.astro-main.loadbalancer.server.port=4321"
+      
+      # 🔹 WWW-редирект
+      - "traefik.http.routers.astro-www.rule=Host(`www.reev24.com`)"
+      - "traefik.http.routers.astro-www.entrypoints=websecure"
+      - "traefik.http.routers.astro-www.tls=true"
+      - "traefik.http.routers.astro-www.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.astro-www.service=astro-main"  # Тот же сервис
+      
+      # 🔹 HTTP → HTTPS редиректы
+      - "traefik.http.routers.astro-main-http.rule=Host(`reev24.com`)"
+      - "traefik.http.routers.astro-main-http.entrypoints=web"
+      - "traefik.http.routers.astro-main-http.middlewares=redirect-to-https"
+      
+      - "traefik.http.routers.astro-www-http.rule=Host(`www.reev24.com`)"
+      - "traefik.http.routers.astro-www-http.entrypoints=web"
+      - "traefik.http.routers.astro-www-http.middlewares=redirect-to-https"
+      
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+
+  # 🚦 Traefik (тот же, что в dev, но без проброса портов для отладки)
   traefik:
     image: traefik:v3.6.14
-    container_name: traefik
+    container_name: reev-traefik
     ports:
       - "80:80"
       - "443:443"
@@ -111,55 +153,19 @@ services:
     image: joomla:latest
     container_name: joomla-app
     environment:
-      JOOMLA_DB_TYPE: pgsql
-      JOOMLA_DB_HOST: postgres
-      JOOMLA_DB_USER: joomlauser
-      JOOMLA_DB_PASSWORD: ${JOOMLA_DB_PASSWORD:-joomlasecret}
-      JOOMLA_DB_NAME: ${POSTGRES_DB:-appdb}
-      JOOMLA_DB_PREFIX: jos_
+      - DOCKER_API_VERSION=1.40
+      - CF_DNS_API_TOKEN=${CF_DNS_API_TOKEN}
     volumes:
-      - joomla_data:/var/www/html
-    depends_on:
-      postgres:
-        condition: service_healthy
-      traefik:
-        condition: service_started
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/acme.json
     restart: unless-stopped
-    networks:
-      - app-net
-    labels:
-      - "traefik.enable=true"
-      
-      # 🔹 Роутер 1: reev24.com → HTTPS
-      - "traefik.http.routers.joomla-main.rule=Host(`reev24.com`)"
-      - "traefik.http.routers.joomla-main.entrypoints=websecure"
-      - "traefik.http.routers.joomla-main.tls=true"
-      - "traefik.http.routers.joomla-main.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.joomla-main.service=joomla"
-      - "traefik.http.services.joomla.loadbalancer.server.port=80"
-      
-      # 🔹 Роутер 2: www.reev24.com → HTTPS
-      - "traefik.http.routers.joomla-www.rule=Host(`www.reev24.com`)"
-      - "traefik.http.routers.joomla-www.entrypoints=websecure"
-      - "traefik.http.routers.joomla-www.tls=true"
-      - "traefik.http.routers.joomla-www.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.joomla-www.service=joomla"  # Тот же сервис!
-      
-      # 🔹 Редирект HTTP → HTTPS для reev24.com
-      - "traefik.http.routers.joomla-main-http.rule=Host(`reev24.com`)"
-      - "traefik.http.routers.joomla-main-http.entrypoints=web"
-      - "traefik.http.routers.joomla-main-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      
-      # 🔹 Редирект HTTP → HTTPS для www.reev24.com
-      - "traefik.http.routers.joomla-www-http.rule=Host(`www.reev24.com`)"
-      - "traefik.http.routers.joomla-www-http.entrypoints=web"
-      - "traefik.http.routers.joomla-www-http.middlewares=redirect-to-https"
+    networks: [reev-net]
+
+networks:
+  reev-net:
+    driver: bridge
+
 volumes:
   pgdata:
   redisdata:
-  joomla_data:
-
-networks:
-  app-net:
-    driver: bridge

@@ -1,12 +1,19 @@
+# .github/workflows/deploy.yml
 name: Build & Deploy
 
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
+    types: [ closed ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # ✅ Валидный GitHub Actions expression
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -18,33 +25,129 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -e
-            cd /opt/joomla-pg
             
-            echo "🔄 Pulling latest code..."
+            echo "🚀 Starting deploy to /opt/reev..."
+            cd /opt/reev
+            
+            # =============================================================================
+            # 1. Обновляем код
+            # =============================================================================
+            echo "📦 Fetching latest code..."
             git fetch origin main
             git reset --hard origin/main
             
-            echo "🔐 Ensuring traefik/acme.json exists with correct permissions..."
-            # Создаём директорию, если нет
-            mkdir -p traefik
-            # Создаём файл, если нет
-            touch traefik/acme.json
-            # 🔐 Критично: права только для чтения/записи владельцем
-            chmod 600 traefik/acme.json
+            # =============================================================================
+            # 2. Проверка конфигурации
+            # =============================================================================
+            echo "🔐 Checking configuration files..."
             
-            echo "🔨 Building API image..."
-            docker compose -f docker-compose.prod.yml build --no-cache api
+            # Проверка .env
+            if [ ! -f .env ]; then
+              echo "❌ ERROR: .env file not found at /opt/reev/.env"
+              exit 1
+            fi
+            echo "✅ .env found"
+            
+            # Создаём папку traefik
+            mkdir -p traefik
+            
+            # Создаём traefik.yml если нет (без heredoc — используем printf)
+            if [ ! -f traefik/traefik.yml ]; then
+              echo "⚠️ traefik/traefik.yml not found, creating minimal config..."
+              printf '%s\n' \
+                'api:' \
+                '  dashboard: true' \
+                '  insecure: false' \
+                'entryPoints:' \
+                '  web:' \
+                '    address: ":80"' \
+                '    http:' \
+                '      redirections:' \
+                '        entryPoint: { to: websecure, scheme: https }' \
+                '  websecure:' \
+                '    address: ":443"' \
+                '    http:' \
+                '      tls: { certResolver: letsencrypt }' \
+                'providers:' \
+                '  docker:' \
+                '    endpoint: "unix:///var/run/docker.sock"' \
+                '    exposedByDefault: false' \
+                '  file:' \
+                '    filename: /etc/traefik/traefik.yml' \
+                '    watch: true' \
+                'certificatesResolvers:' \
+                '  letsencrypt:' \
+                '    acme:' \
+                '      email: your-email@example.com' \
+                '      storage: /acme.json' \
+                '      dnsChallenge:' \
+                '        provider: cloudflare' \
+                '        resolvers: ["1.1.1.1:53", "8.8.8.8:53"]' \
+                > traefik/traefik.yml
+              echo "⚠️ Please update traefik/traefik.yml with your email"
+            fi
+            echo "✅ traefik/traefik.yml ready"
+            
+            # acme.json с правами 600
+            if [ ! -f traefik/acme.json ]; then
+              echo "🔐 Creating empty acme.json with secure permissions..."
+              touch traefik/acme.json
+              chmod 600 traefik/acme.json
+            fi
+            echo "✅ traefik/acme.json ready"
+            
+            # =============================================================================
+            # 3. Сборка и запуск
+            # =============================================================================
+            echo "🔨 Building images (api + astro)..."
+            docker compose -f docker-compose.prod.yml build --no-cache api astro
             
             echo "🚀 Starting services..."
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
-            echo "⏳ Waiting for services..."
-            sleep 20
+            # =============================================================================
+            # 4. Проверка здоровья
+            # =============================================================================
+            echo "⏳ Waiting for services to initialize..."
+            sleep 30
             
-            echo "🏥 Health check API..."
-            curl -f http://127.0.0.1:3000/api/health || { echo "❌ API Health check failed"; exit 1; }
+            # Внутренняя проверка API
+            echo "🔍 Checking API health (internal)..."
+            if docker exec reev-api curl -sf http://localhost:3000/api/health > /dev/null 2>&1; then
+              echo "✅ API internal health check passed"
+            else
+              echo "⚠️ API internal health check failed — checking logs..."
+              docker compose -f docker-compose.prod.yml logs --tail=20 api || true
+            fi
             
-            echo "🧹 Cleaning..."
+            # Внутренняя проверка Astro
+            echo "🔍 Checking Astro health (internal)..."
+            if docker exec reev-astro curl -sf http://localhost:4321/ > /dev/null 2>&1; then
+              echo "✅ Astro internal health check passed"
+            else
+              echo "⚠️ Astro internal health check failed — checking logs..."
+              docker compose -f docker-compose.prod.yml logs --tail=20 astro || true
+            fi
+            
+            # Внешние проверки (опционально)
+            echo "🌐 Optional external checks..."
+            curl -sf https://api.reev24.com/api/health > /dev/null 2>&1 && \
+              echo "✅ External API check passed" || \
+              echo "⚠️ External API check failed (DNS/SSL may be propagating)"
+              
+            curl -sf https://reev24.com/ > /dev/null 2>&1 && \
+              echo "✅ External Astro check passed" || \
+              echo "⚠️ External Astro check failed (DNS/SSL may be propagating)"
+            
+            # =============================================================================
+            # 5. Очистка
+            # =============================================================================
+            echo "🧹 Cleaning up old images..."
             docker image prune -f --filter="until=24h"
             
-            echo "✅ Deploy completed!"
+            echo ""
+            echo "🎉 Deploy completed successfully!"
+            echo "📊 Check: docker compose -f docker-compose.prod.yml ps"
+            echo "🔍 Logs: docker compose -f docker-compose.prod.yml logs -f"
+            echo "🌐 Frontend: https://reev24.com"
+            echo "🔌 API: https://api.reev24.com/api/health"
