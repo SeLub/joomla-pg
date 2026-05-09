@@ -72,6 +72,8 @@ services:
       - NODE_ENV=production
       - PUBLIC_API_URL=https://api.reev24.com  # ✅ Публичный URL для фронтенда
       - PUBLIC_SITE_URL=https://reev24.com
+      - HOST=0.0.0.0
+      - PORT=4321
     expose:
       - "4321"
     depends_on:
