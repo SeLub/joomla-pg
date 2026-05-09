@@ -27,8 +27,6 @@
   },
   "required": [
     "title",
-    "description",
-    "locale"
-  ],
-  "additionalProperties": false
+    "description"
+  ]
 }

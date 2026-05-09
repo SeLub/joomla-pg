@@ -35,8 +35,6 @@
     "version",
     "url",
     "icon",
-    "colorOklch",
-    "order"
-  ],
-  "additionalProperties": false
+    "colorOklch"
+  ]
 }

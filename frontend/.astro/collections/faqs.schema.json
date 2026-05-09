@@ -30,9 +30,6 @@
   },
   "required": [
     "question",
-    "answer",
-    "order",
-    "locale"
-  ],
-  "additionalProperties": false
+    "answer"
+  ]
 }

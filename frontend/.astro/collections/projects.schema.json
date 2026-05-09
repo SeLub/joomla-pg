@@ -63,12 +63,6 @@
   },
   "required": [
     "title",
-    "description",
-    "tags",
-    "featured",
-    "order",
-    "services",
-    "draft"
-  ],
-  "additionalProperties": false
+    "description"
+  ]
 }
