@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "question": {
+      "type": "string"
+    },
+    "answer": {
+      "type": "string"
+    },
+    "category": {
+      "type": "string"
+    },
+    "order": {
+      "default": 0,
+      "type": "number"
+    },
+    "locale": {
+      "default": "en",
+      "type": "string",
+      "enum": [
+        "en",
+        "es",
+        "fr"
+      ]
+    },
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "question",
+    "answer",
+    "order",
+    "locale"
+  ],
+  "additionalProperties": false
+}

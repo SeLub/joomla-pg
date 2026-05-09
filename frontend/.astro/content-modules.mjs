@@ -1,0 +1,26 @@
+
+export default new Map([
+["src/content/blog/en/animations-in-astro-rocket.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fanimations-in-astro-rocket.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/astro-rocket-configuration-guide.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fastro-rocket-configuration-guide.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/astro-rocket-getting-started.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fastro-rocket-getting-started.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/colour-mode-system.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fcolour-mode-system.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/component-library.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fcomponent-library.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/contact-form-resend-setup.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fcontact-form-resend-setup.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/design-system-color-tokens.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fdesign-system-color-tokens.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/hero-scroll-indicator.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fhero-scroll-indicator.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/hero-typing-effect.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fhero-typing-effect.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/scroll-progress-bar.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fscroll-progress-bar.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/scroll-progress-ring.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fscroll-progress-ring.mdx&astroContentModuleFlag=true")],
+["src/content/blog/en/seo-in-astro-rocket.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fblog%2Fen%2Fseo-in-astro-rocket.mdx&astroContentModuleFlag=true")],
+["src/content/projects/astro-rocket.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fastro-rocket.mdx&astroContentModuleFlag=true")],
+["src/content/projects/blog-starter.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fblog-starter.mdx&astroContentModuleFlag=true")],
+["src/content/projects/component-library.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fcomponent-library.mdx&astroContentModuleFlag=true")],
+["src/content/projects/docs-site.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fdocs-site.mdx&astroContentModuleFlag=true")],
+["src/content/projects/ecommerce-store.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fecommerce-store.mdx&astroContentModuleFlag=true")],
+["src/content/projects/saas-landing.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fsaas-landing.mdx&astroContentModuleFlag=true")],
+["src/content/projects/studio-portfolio.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fprojects%2Fstudio-portfolio.mdx&astroContentModuleFlag=true")],
+["src/content/stack/astro.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fstack%2Fastro.mdx&astroContentModuleFlag=true")],
+["src/content/stack/react.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fstack%2Freact.mdx&astroContentModuleFlag=true")],
+["src/content/stack/tailwind.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fstack%2Ftailwind.mdx&astroContentModuleFlag=true")],
+["src/content/stack/typescript.mdx", () => import("astro:content-layer-deferred-module?astro%3Acontent-layer-deferred-module=&fileName=src%2Fcontent%2Fstack%2Ftypescript.mdx&astroContentModuleFlag=true")]]);
+		

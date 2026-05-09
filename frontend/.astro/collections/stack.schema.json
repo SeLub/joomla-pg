@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "url": {
+      "type": "string",
+      "format": "uri"
+    },
+    "icon": {
+      "type": "string"
+    },
+    "colorOklch": {
+      "type": "string"
+    },
+    "order": {
+      "default": 0,
+      "type": "number"
+    },
+    "$schema": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "description",
+    "version",
+    "url",
+    "icon",
+    "colorOklch",
+    "order"
+  ],
+  "additionalProperties": false
+}
