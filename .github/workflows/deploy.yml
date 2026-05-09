@@ -14,12 +14,22 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with: { version: 9 }
+      
       - name: Run API tests
         working-directory: ./api
         run: |
-          corepack enable
           pnpm install --frozen-lockfile
           pnpm test
+      
+      - name: Run Astro build check (type check + lint)
+        working-directory: ./frontend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check  # astro check + eslint + tsc --noEmit
 
   deploy:
     runs-on: ubuntu-latest
@@ -36,24 +46,27 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
-            cd /opt/joomla-pg
+            cd /opt/reev  # ✅ Обновлённый путь
             
-            # 1. Обновляем код (но не .env — он в .gitignore)
+            # 1. Обновляем код
             git fetch origin main
             git reset --hard origin/main
             
-            # 2. Собираем образ API нативно для ARM64 (важно!)
-            docker compose -f docker-compose.prod.yml build --no-cache api
+            # 2. Собираем образы (API + Astro)
+            docker compose -f docker-compose.prod.yml build --no-cache api astro
             
             # 3. Запускаем/перезапускаем сервисы
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             
             # 4. Ждём запуска и проверяем здоровье
             echo "Waiting for services to start..."
-            sleep 15
-            curl -f http://127.0.0.1:3000/api/health || exit 1
+            sleep 20  # Astro может требовать больше времени на первый запуск
             
-            # 5. Очистка старых образов (экономим место)
+            # Health checks
+            curl -f http://127.0.0.1:3000/api/health || { echo "❌ API health check failed"; exit 1; }
+            curl -f http://127.0.0.1:4321/ || { echo "❌ Astro health check failed"; exit 1; }
+            
+            # 5. Очистка старых образов
             docker image prune -f --filter="until=24h"
             
             echo "✅ Deploy completed successfully"
